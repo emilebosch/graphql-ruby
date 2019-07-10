@@ -40,6 +40,7 @@ module GraphQL
           types = {}
           types.merge!(GraphQL::Schema::BUILT_IN_TYPES)
           directives = {}
+          extensions = []
           type_resolver = ->(type) { -> { resolve_type(types, type) } }
 
           document.definitions.each do |definition|
@@ -47,6 +48,13 @@ module GraphQL
             when GraphQL::Language::Nodes::SchemaDefinition
               raise InvalidDocumentError.new('Must provide only one schema definition.') if schema_definition
               schema_definition = definition
+            when GraphQL::Language::Nodes::ScalarTypeExtension,
+              GraphQL::Language::Nodes::ObjectTypeExtension,
+              GraphQL::Language::Nodes::InterfaceTypeExtension,
+              GraphQL::Language::Nodes::UnionTypeExtension,
+              GraphQL::Language::Nodes::EnumTypeExtension,
+              GraphQL::Language::Nodes::InputObjectTypeExtension
+              extensions << definition
             when GraphQL::Language::Nodes::EnumTypeDefinition
               types[definition.name] = build_enum_type(definition, type_resolver)
             when GraphQL::Language::Nodes::ObjectTypeDefinition
@@ -65,6 +73,32 @@ module GraphQL
           end
 
           directives = GraphQL::Schema.default_directives.merge(directives)
+
+          for ext in extensions
+            type = types[ext.name]
+            case ext
+            when GraphQL::Language::Nodes::ScalarTypeExtension
+              # TODO: Where are the directives on the scalar type?
+            when GraphQL::Language::Nodes::ObjectTypeExtension
+              type.fields.merge! Hash[build_fields(ext.fields, type_resolver, default_resolve: default_resolve)]
+              type.interfaces.concat ext.interfaces.map{ |interface_name| type_resolver.call(interface_name) }
+            when GraphQL::Language::Nodes::InterfaceTypeExtension
+              type.fields.merge! Hash[build_fields(ext.fields, type_resolver, default_resolve: nil)]
+            when GraphQL::Language::Nodes::UnionTypeExtension
+              type.possible_types.concat ext.types.map { |x|types[x.name] }
+            when GraphQL::Language::Nodes::EnumTypeExtension
+              ext.values.each do |enum_value_definition|
+                type.add_value EnumType::EnumValue.define(
+                  name: enum_value_definition.name,
+                  value: enum_value_definition.name,
+                  deprecation_reason: build_deprecation_reason(enum_value_definition.directives),
+                  description: enum_value_definition.description,
+                )
+              end
+            when GraphQL::Language::Nodes::InputObjectTypeExtension
+              type.arguments.merge! Hash[build_input_arguments(ext, type_resolver)]
+            end
+          end
 
           if schema_definition
             if schema_definition.query

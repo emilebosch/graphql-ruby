@@ -18,6 +18,7 @@ gh-pages/
 tmp/*
 __*.db
 node_modules/
+.byebug_history
 yarn.lock
 OperationStoreClient.js
 spec/integration/tmp
