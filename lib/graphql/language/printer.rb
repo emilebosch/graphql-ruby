@@ -161,9 +161,23 @@ module GraphQL
         out << print_directives(scalar_type.directives)
       end
 
+      def print_scalar_type_extension(scalar_type)
+        out = ''.dup
+        out << "extend scalar #{scalar_type.name}"
+        out << print_directives(scalar_type.directives)
+      end
+
       def print_object_type_definition(object_type)
         out = print_description(object_type)
         out << "type #{object_type.name}"
+        out << " implements " << object_type.interfaces.map(&:name).join(" & ") unless object_type.interfaces.empty?
+        out << print_directives(object_type.directives)
+        out << print_field_definitions(object_type.fields)
+      end
+
+      def print_object_type_extension(object_type)
+        out = ''.dup
+        out << "extend type #{object_type.name}"
         out << " implements " << object_type.interfaces.map(&:name).join(" & ") unless object_type.interfaces.empty?
         out << print_directives(object_type.directives)
         out << print_field_definitions(object_type.fields)
@@ -204,6 +218,13 @@ module GraphQL
         out << print_field_definitions(interface_type.fields)
       end
 
+      def print_interface_type_extension(interface_type)
+        out = ''.dup
+        out << "extend interface #{interface_type.name}"
+        out << print_directives(interface_type.directives)
+        out << print_field_definitions(interface_type.fields)
+      end
+
       def print_union_type_definition(union_type)
         out = print_description(union_type)
         out << "union #{union_type.name}"
@@ -211,9 +232,26 @@ module GraphQL
         out << " = " + union_type.types.map(&:name).join(" | ")
       end
 
+      def print_union_type_extension(union_type)
+        out = ''.dup
+        out << "extend union #{union_type.name}"
+        out << print_directives(union_type.directives)
+        out << " = " + union_type.types.map(&:name).join(" | ")
+      end
+
       def print_enum_type_definition(enum_type)
         out = print_description(enum_type)
         out << "enum #{enum_type.name}#{print_directives(enum_type.directives)} {\n"
+        enum_type.values.each.with_index do |value, i|
+          out << print_description(value, indent: '  ', first_in_block: i == 0)
+          out << print_enum_value_definition(value)
+        end
+        out << "}"
+      end
+
+      def print_enum_type_extension(enum_type)
+        out = ''.dup
+        out << "extend enum #{enum_type.name}#{print_directives(enum_type.directives)} {\n"
         enum_type.values.each.with_index do |value, i|
           out << print_description(value, indent: '  ', first_in_block: i == 0)
           out << print_enum_value_definition(value)
@@ -230,6 +268,18 @@ module GraphQL
       def print_input_object_type_definition(input_object_type)
         out = print_description(input_object_type)
         out << "input #{input_object_type.name}"
+        out << print_directives(input_object_type.directives)
+        out << " {\n"
+        input_object_type.fields.each.with_index do |field, i|
+          out << print_description(field, indent: '  ', first_in_block: i == 0)
+          out << "  #{print_input_value_definition(field)}\n"
+        end
+        out << "}"
+      end
+
+      def print_input_object_type_extension(input_object_type)
+        out = ''.dup
+        out << "extend input #{input_object_type.name}"
         out << print_directives(input_object_type.directives)
         out << " {\n"
         input_object_type.fields.each.with_index do |field, i|
@@ -342,6 +392,18 @@ module GraphQL
           print_input_object_type_definition(node)
         when Nodes::DirectiveDefinition
           print_directive_definition(node)
+        when Nodes::ScalarTypeExtension
+          print_scalar_type_extension(node)
+        when Nodes::ObjectTypeExtension
+          print_object_type_extension(node)
+        when Nodes::InterfaceTypeExtension
+          print_interface_type_extension(node)
+        when Nodes::UnionTypeExtension
+          print_union_type_extension(node)
+        when Nodes::EnumTypeExtension
+          print_enum_type_extension(node)
+        when Nodes::InputObjectTypeExtension
+          print_input_object_type_extension(node)
         when FalseClass, Float, Integer, NilClass, String, TrueClass, Symbol
           GraphQL::Language.serialize(node)
         when Array

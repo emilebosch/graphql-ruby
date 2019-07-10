@@ -64,16 +64,19 @@ describe GraphQL::Language::DocumentFromSchemaDefinition do
     let(:schema) { GraphQL::Schema.from_definition(schema_idl) }
 
     let(:document) {
-        subject.new(
-          schema
-        ).document
-      }
+      subject.new(
+        schema
+      ).document
+    }
 
-      it "returns the IDL without introspection, built ins and schema root" do
-        assert equivalent_node?(expected_document, document)
-      end
-      it "extends types"
-      it "generates IDL with extends keywords"
+    it "returns the IDL without introspection, built ins and schema root" do
+      assert equivalent_node?(expected_document, document)
+    end
+
+    it "generates IDL with extends keywords" do
+      document = GraphQL.parse(schema_idl)
+      puts GraphQL::Language::Printer.new.print(document)
+    end
   end
 
   private
