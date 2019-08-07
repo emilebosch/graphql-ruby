@@ -73,9 +73,12 @@ describe GraphQL::Language::DocumentFromSchemaDefinition do
       assert equivalent_node?(expected_document, document)
     end
 
-    it "generates IDL with extends keywords" do
+    it "print GraphQL::Language::Document with extend" do
       document = GraphQL.parse(schema_idl)
-      puts GraphQL::Language::Printer.new.print(document)
+      GraphQL::Language::Printer.new.print(document)
+    end
+
+    it "generates GraphQL::Language::Document from the GraphQL::Schema build" do
     end
   end
 
